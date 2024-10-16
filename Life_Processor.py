@@ -2,16 +2,19 @@ import re
 import datetime
 
 class LifeProcessor:
+    # 构造函数
     def __init__(self, file_path):
         self.file_path = file_path
-        self.data = {}
         self.lines = []
-        self.overall_total = 0
+        self.data = {}
 
-    def parse_accounting_file(self):
+    # 读取文件
+    def read_file(self):
         with open(self.file_path, 'r', encoding='utf-8') as f:
             self.lines = f.readlines()
 
+    # 解析文件
+    def parse_file(self):
         i = 0
         while i < len(self.lines):
             line = self.lines[i].strip()
@@ -30,7 +33,7 @@ class LifeProcessor:
                     'items': []
                 }
                 i += 1
-                # 读取薪资、支出、结余行
+                # 读取薪资/支出/结余行
                 for _ in range(3):
                     if i >= len(self.lines):
                         break
@@ -56,13 +59,18 @@ class LifeProcessor:
                     if item_match:
                         amount = int(item_match.group(1).replace(' ', ''))
                         description = item_match.group(2).strip()
-                        month_data['items'].append({'amount': amount, 'description': description})
+                        item = {
+                            'amount': amount,
+                            'description': description,
+                            'line_index': i
+                        }
+                        month_data['items'].append(item)
                     i += 1
                 self.data[month_name] = month_data
             else:
                 i += 1
 
-    def calculate_totals(self):
+    def calculate_month(self):
         for month, details in self.data.items():
             # 计算薪资和支出
             income = details['salary']
@@ -73,7 +81,7 @@ class LifeProcessor:
             details['calculated_expense'] = expense
             details['calculated_balance'] = balance
 
-    def update_total_in_file(self):
+    def update_month(self):
         # 更新每个月份的薪资、支出和结余
         for month, details in self.data.items():
             # 更新薪资
@@ -94,15 +102,48 @@ class LifeProcessor:
                 self.lines[i] = f'*Update Time : {current_time}*\n'
                 update_time_updated = True
                 break
+        
         # 如果没有更新时间，则添加到文件末尾
         if not update_time_updated:
             self.lines.append(f'\n*Update Time : {current_time}*\n')
 
+    def modify_item(self, month, description, new_amount):
+        month_key = f'life.M{month:0>2}'
+        if month_key not in self.data:
+            print(f"未找到月份：{month_key}")
+            return
+
+        month_data = self.data[month_key]
+        # 查找匹配描述的项目
+        item_found = False
+        for item in month_data['items']:
+            if description in item['description']:
+                item['amount'] = new_amount  # 更新金额
+                # 更新文件中的对应行
+                sign = '+' if new_amount >= 0 else '-'
+                self.lines[item['line_index']] = f'`{sign} {abs(new_amount)}` {item['description']}\n'
+                item_found = True
+                break
+
+        if not item_found:
+            print(f"未找到描述为“{description}”的项目")
+            return
+
+        # 修改后重新计算并写入
+        self.calculate_month()
+        self.update_month()
+        self.write_file()
+        print(f"已更新 {month_key} 中“{description}”的金额为 {new_amount}")
+    
+    # 写入文件
+    def write_file(self):
         with open(self.file_path, 'w', encoding='utf-8') as f:
             f.writelines(self.lines)
 
     def run(self):
-        self.parse_accounting_file()
-        self.calculate_totals()
-        self.update_total_in_file()
-        print('文件已更新。')
+        self.read_file()
+        self.parse_file()
+        self.calculate_month()
+        self.update_month()
+        self.write_file()
+        print('life文件已更新')
