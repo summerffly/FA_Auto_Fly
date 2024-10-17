@@ -9,10 +9,9 @@ class FAProcessor:
         self.categories = {}
         self.months = {}
         self.current_wealth = 0
-        self.disposable_wealth = 0
+        self.supplement = []
+        self.available_wealth = 0
         self.assets = {}
-        self.update_time = ''
-        self.other_items = []
     
     def read_file(self):
         with open(self.file_path, 'r', encoding='utf-8') as f:
@@ -30,9 +29,8 @@ class FAProcessor:
                     self.initial_wealth = int(wealth_match.group(1))
                 i += 1
                 continue
-            
             # 分类金额
-            category_match = re.match(r'##\s+(\w+)', line)
+            category_match = re.match(r'###\s+(\w+)', line)
             if category_match:
                 category_name = category_match.group(1)
                 i += 1
@@ -49,6 +47,7 @@ class FAProcessor:
             month_match = re.match(r'##\s+(life\.M\d+)', line)
             if month_match:
                 month_name = month_match.group(1)
+                print(month_match.group(1))
                 month_data = {}
                 for _ in range(3):
                     i += 1
@@ -72,18 +71,26 @@ class FAProcessor:
                 wealth_match = re.match(r'当前财富\s*:\s*([+-]?\d+)', line)
                 if wealth_match:
                     self.current_wealth = int(wealth_match.group(1))
-                i += 1
+                i += 3
+                for _ in range(2):
+                    supplement_match = re.match(r'`([+-]\s*\d+)`\s+(.+)', line)
+                    if supplement_match:
+                        amount = int(supplement_match.group(1).replace(' ', ''))
+                        description = supplement_match.group(2)
+                        self.supplement.append({'amount': amount, 'description': description})
+                    i += 1
+                    continue
                 continue
             # 可支配财富
             if line.startswith('可支配财富'):
-                disposable_match = re.match(r'可支配财富\s*:\s*([+-]?\d+)', line)
-                if disposable_match:
-                    self.disposable_wealth = int(disposable_match.group(1))
+                available_match = re.match(r'可支配财富\s*:\s*([+-]?\d+)', line)
+                if available_match:
+                    self.available_wealth = int(available_match.group(1))
                 i += 1
                 # 读取资产列表
                 while i < len(self.lines):
                     asset_line = self.lines[i].strip()
-                    if asset_line.startswith('*Update Time'):
+                    if asset_line.startswith('*```'):
                         break
                     asset_match = re.match(r'(.+?)\s*:\s*([+-]?\d+)', asset_line)
                     if asset_match:
@@ -91,21 +98,6 @@ class FAProcessor:
                         asset_amount = int(asset_match.group(2))
                         self.assets[asset_name] = asset_amount
                     i += 1
-                continue
-            # 更新时间
-            if line.startswith('*Update Time'):
-                time_match = re.match(r'\*Update Time\s*:\s*(.+)', line)
-                if time_match:
-                    self.update_time = time_match.group(1)
-                i += 1
-                continue
-            # 其他项目
-            item_match = re.match(r'`([+-]\s*\d+)`\s+(.+)', line)
-            if item_match:
-                amount = int(item_match.group(1).replace(' ', ''))
-                description = item_match.group(2)
-                self.other_items.append({'amount': amount, 'description': description})
-                i += 1
                 continue
             else:
                 i += 1
@@ -116,21 +108,21 @@ class FAProcessor:
         # 计算总月度结余
         total_monthly_balance = sum(month['balance'] for month in self.months.values())
         # 计算其他项目总额
-        total_other_items = sum(item['amount'] for item in self.other_items)
+        #total_other_items = sum(item['amount'] for item in self.other_items)
         # 计算当前财富
-        calculated_current_wealth = self.initial_wealth + total_categories + total_monthly_balance + total_other_items
+        calculated_current_wealth = self.initial_wealth + total_categories + total_monthly_balance
         # 计算资产总额
-        total_assets = sum(self.assets.values())
+        #total_assets = sum(self.assets.values())
         # 计算可支配财富
-        calculated_disposable_wealth = total_assets
+        #calculated_available_wealth = total_assets
         # 存储计算结果
         self.calculated_results = {
             'total_categories': total_categories,
             'total_monthly_balance': total_monthly_balance,
-            'total_other_items': total_other_items,
-            'calculated_current_wealth': calculated_current_wealth,
-            'total_assets': total_assets,
-            'calculated_disposable_wealth': calculated_disposable_wealth
+            #'total_other_items': total_other_items,
+            'calculated_current_wealth': calculated_current_wealth
+            #'total_assets': total_assets,
+            #'calculated_available_wealth': calculated_available_wealth
         }
 
     def generate_report(self):
@@ -141,19 +133,19 @@ class FAProcessor:
         print("月份结余:")
         for month, data in self.months.items():
             print(f"  {month}: 薪资={data.get('salary', 0)}, 支出={data.get('expense', 0)}, 结余={data.get('balance', 0)}")
-        print("其他项目:")
-        for item in self.other_items:
-            print(f"  {item['description']}: {item['amount']}")
+        #print("其他项目:")
+        #for item in self.other_items:
+        #    print(f"  {item['description']}: {item['amount']}")
         print("当前财富:", self.current_wealth)
         print("计算得到的当前财富:", self.calculated_results['calculated_current_wealth'])
-        print("资产列表:")
-        for asset, amount in self.assets.items():
-            print(f"  {asset}: {amount}")
-        print("可支配财富:", self.disposable_wealth)
-        print("计算得到的可支配财富:", self.calculated_results['calculated_disposable_wealth'])
-        print("更新时间:", self.update_time)
+        #print("资产列表:")
+        #for asset, amount in self.assets.items():
+        #    print(f"  {asset}: {amount}")
+        #print("可支配财富:", self.available_wealth)
+        #print("计算得到的可支配财富:", self.calculated_results['calculated_available_wealth'])
+        #print("更新时间:", self.update_time)
     
-    def run(self):
+    def update(self):
         self.read_file()
         self.parse_file()
         self.calculate_totals()

@@ -140,7 +140,7 @@ class LifeProcessor:
         with open(self.file_path, 'w', encoding='utf-8') as f:
             f.writelines(self.lines)
 
-    def run(self):
+    def update(self):
         self.read_file()
         self.parse_file()
         self.calculate_month()
